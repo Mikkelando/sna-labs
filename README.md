@@ -157,10 +157,11 @@ c = np.array([centrality[i] for i in range(data['n'])])
 Средняя степень считается как  `sum(d) / n` 
 
 ```python
-G = nx.erdos_renyi_graph(n, p, seed=42)
+m_emp = G.number_of_edges()
 degrees = [d for _, d in G.degree()]
-avg_emp = sum(degrees) / n
-avg_theo = (n - 1) * p
+avg_degree_emp = sum(degrees) / n 
+
+
 ```
 
 Дополнительно прогоняется 500 независимых генераций, средние степени по выборкам усредняются - должно почти точно сходиться к теоретическому значению.

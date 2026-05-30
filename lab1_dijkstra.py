@@ -163,7 +163,7 @@ print('\nСверка с NetworkX:')
 print(f'  NetworkX: {dict(sorted(ref.items()))}')
 print(f'  Наш:      {dict(sorted(ours.items()))}')
 assert ref == ours, 'Расхождение!'
-print('  OK — результаты совпадают.')
+print('  OK - результаты совпадают.')
 
 
 # =========================================================================
