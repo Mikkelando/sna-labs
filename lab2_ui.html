@@ -1,0 +1,1042 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Лаба 2 — конструктор графа на 50 узлов</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-elev: #161b22;
+    --panel: #1c2330;
+    --panel2: #252d3d;
+    --border: #2d3648;
+    --border-strong: #3d485e;
+    --text: #e6edf3;
+    --text-dim: #9aa6b8;
+    --muted: #6e7a8f;
+    --accent: #58a6ff;
+    --accent-hover: #79b8ff;
+    --warn: #f0883e;
+    --danger: #e5534b;
+    --node-default: #58a6ff;
+    --node-selected: #ffd33d;
+    --edge: rgba(160, 180, 200, 0.35);
+    --grid: #1f2735;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui, sans-serif;
+    font-size: 13px;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  /* ── header ─────────────────────────────────────────────── */
+  header {
+    background: var(--bg-elev);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 14px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .group {
+    display: flex; gap: 4px; align-items: center;
+    background: var(--panel); border: 1px solid var(--border);
+    padding: 3px; border-radius: 6px;
+  }
+  .group-label {
+    color: var(--muted); font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.06em; padding: 0 6px 0 4px; font-weight: 600;
+  }
+  button, select, label.btn {
+    background: transparent; color: var(--text);
+    border: 1px solid transparent; padding: 5px 10px;
+    border-radius: 4px; cursor: pointer; font-size: 12px;
+    font-family: inherit; line-height: 1.3;
+    transition: background 0.1s, border-color 0.1s;
+  }
+  button:hover, label.btn:hover, select:hover { background: var(--panel2); }
+  button.primary {
+    background: var(--accent); color: #0d1117; font-weight: 600;
+    border-color: var(--accent);
+  }
+  button.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  button.danger { color: var(--danger); }
+  button.danger:hover { background: rgba(229,83,75,0.12); }
+  button.icon { padding: 5px 8px; font-family: ui-monospace, monospace; min-width: 26px; }
+  select {
+    background: var(--bg-elev); border: 1px solid var(--border);
+    padding: 5px 8px; border-radius: 4px;
+  }
+  .stat {
+    color: var(--text-dim); font-size: 11px; padding: 0 6px;
+    white-space: nowrap;
+  }
+  .stat b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .spacer { flex: 1; }
+
+  /* ── main ───────────────────────────────────────────────── */
+  main {
+    flex: 1; display: grid;
+    grid-template-columns: 1fr 460px;
+    min-height: 0;
+  }
+  #graph-wrap { position: relative; background: var(--bg); overflow: hidden; }
+  #graph { display: block; width: 100%; height: 100%; }
+  #help {
+    position: absolute; left: 12px; bottom: 12px;
+    background: rgba(13, 17, 23, 0.92);
+    padding: 8px 12px; border-radius: 6px;
+    color: var(--text-dim); font-size: 11px; line-height: 1.7;
+    pointer-events: none;
+    border: 1px solid var(--border);
+  }
+  #help b { color: var(--text); }
+  #help kbd {
+    background: var(--panel2); border: 1px solid var(--border-strong);
+    border-radius: 3px; padding: 0 4px; font-size: 10px;
+    font-family: ui-monospace, monospace; color: var(--text);
+  }
+  #zoom-info {
+    position: absolute; right: 12px; bottom: 12px;
+    background: rgba(13, 17, 23, 0.92);
+    padding: 4px 10px; border-radius: 4px;
+    border: 1px solid var(--border);
+    color: var(--text-dim); font-size: 11px;
+    font-family: ui-monospace, monospace;
+    pointer-events: none;
+  }
+
+  /* ── side ───────────────────────────────────────────────── */
+  #side {
+    background: var(--bg-elev); border-left: 1px solid var(--border);
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  #side h2 {
+    margin: 0; padding: 9px 14px; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-dim);
+    border-bottom: 1px solid var(--border); font-weight: 600;
+    background: var(--panel);
+  }
+  #chart-wrap { padding: 10px; }
+  #chart { display: block; width: 100%; height: 240px; background: var(--bg); border-radius: 4px; border: 1px solid var(--border); }
+  #stats {
+    padding: 10px 14px; font-size: 12px; color: var(--text-dim);
+    border-top: 1px solid var(--border);
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px;
+  }
+  #stats .v { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+  #values-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; border-top: 1px solid var(--border); }
+  #values {
+    flex: 1; overflow-y: auto; padding: 6px 0;
+    font-size: 11px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    line-height: 1.55;
+  }
+  #values .vrow {
+    display: flex; justify-content: space-between; padding: 2px 14px;
+    cursor: pointer;
+  }
+  #values .vrow:hover { background: rgba(88, 166, 255, 0.1); }
+  #values .vrow.sel { background: rgba(255, 211, 61, 0.15); color: var(--node-selected); }
+  #values .idx { color: var(--text-dim); }
+  #values .val { color: var(--text); }
+  #values::-webkit-scrollbar { width: 8px; }
+  #values::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+  #values::-webkit-scrollbar-track { background: transparent; }
+
+  #file-input { display: none; }
+  #warning {
+    margin: 10px; padding: 8px 12px; border-radius: 4px;
+    background: rgba(229, 83, 75, 0.12);
+    border: 1px solid var(--danger);
+    color: #f8a9a4; font-size: 11px; line-height: 1.5;
+    display: none;
+  }
+  #warning.show { display: block; }
+  #warning b { color: var(--danger); }
+  .stat.warn b { color: var(--danger); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="row">
+    <div class="group">
+      <span class="group-label">Раскладка</span>
+      <select id="layout-select">
+        <option value="circle">круг</option>
+        <option value="grid">сетка 10×5</option>
+        <option value="line">линия</option>
+        <option value="random">случайно</option>
+      </select>
+      <button id="btn-relayout" title="Применить раскладку (вершины ставятся в нужные позиции)">Применить</button>
+    </div>
+
+    <div class="group">
+      <span class="group-label">Зум</span>
+      <button class="icon" id="btn-zoom-out" title="Уменьшить">−</button>
+      <button class="icon" id="btn-zoom-in" title="Увеличить">+</button>
+      <button class="icon" id="btn-zoom-reset" title="100%">1:1</button>
+      <button id="btn-zoom-fit" title="Уместить весь граф во view">Уместить</button>
+    </div>
+
+    <div class="spacer"></div>
+
+    <div class="group">
+      <button id="btn-save" class="primary" title="Скачать граф как JSON">Сохранить</button>
+      <label class="btn" for="file-input">Загрузить</label>
+      <input id="file-input" type="file" accept=".json,application/json">
+    </div>
+
+    <div class="group">
+      <button id="btn-clear-edges" title="Удалить все рёбра, узлы оставить">Снять рёбра</button>
+      <button id="btn-reset" class="danger" title="Полный сброс к чистому кругу">Сброс</button>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="group">
+      <span class="group-label">Пресет рёбер</span>
+      <button data-preset="chain" title="Цепочка 0—1—2—…—49">Цепочка</button>
+      <button data-preset="cycle" title="Цикл 0—1—…—49—0">Цикл</button>
+      <button data-preset="star" title="Звезда: узел 25 связан со всеми">Звезда</button>
+      <button data-preset="dumbbell" title="Две клики [0..9] и [40..49] + цепь между ними">Гантель</button>
+      <button data-preset="two-cliques" title="Две клики [0..24] и [25..49] + одно ребро">Две клики</button>
+      <button data-preset="bump" title="Цепочка + плотная зона вокруг центра — характерный «горбик»">Цепь+горбик</button>
+      <button data-preset="pit-bump" title="Цепь с провалом и горбиком — стартовая структура под задание">Спуск-яма-горбик</button>
+      <button data-preset="cubic" title="Кубическая форма: спуск-яма-подъём-пик-спуск (две клики + перемычки)" style="background: rgba(88, 166, 255, 0.15); border-color: var(--accent);">Кубик ★</button>
+      <button data-preset="bipartite" title="Полный двудольный граф (чёт/нечёт)">Двудольный</button>
+    </div>
+
+    <div class="spacer"></div>
+    <div class="stat">Выделено: <b id="stat-sel">—</b></div>
+    <div class="stat">Рёбер: <b id="stat-edges">0</b></div>
+    <div class="stat">Степень ⌀: <b id="stat-deg">0.00</b></div>
+    <div class="stat">Компонент: <b id="stat-cc">—</b></div>
+  </div>
+</header>
+
+<main>
+  <div id="graph-wrap">
+    <canvas id="graph"></canvas>
+    <div id="help">
+      <b>ЛКМ</b> по узлу → выделить, <b>ЛКМ</b> по второму → переключить ребро<br>
+      <b>Перетаскивание</b> узла мышью двигает его<br>
+      <b>ПКМ</b> по узлу — снять все его рёбра &nbsp;·&nbsp; <kbd>Esc</kbd> — снять выделение<br>
+      <b>Колесо мыши</b> — зум &nbsp;·&nbsp; <kbd>Space</kbd>+drag или средняя кнопка — панорама
+    </div>
+    <div id="zoom-info">100%</div>
+  </div>
+
+  <aside id="side">
+    <div id="warning">
+      <b>Граф разорван на <span id="warn-cc">?</span> компонент.</b>
+      NetworkX (`nx.eigenvector_centrality_numpy`) на таких графах кидает
+      <code>AmbiguousSolution</code> и не считает центральность.
+      Для финального прогона ноутбука граф должен быть <b>связным</b> (1 компонента).
+    </div>
+    <h2>c(i) — центральность по индексу</h2>
+    <div id="chart-wrap"><canvas id="chart"></canvas></div>
+
+    <div id="stats">
+      <div>Min c(i): <span class="v" id="stat-min">—</span></div>
+      <div>Max c(i): <span class="v" id="stat-max">—</span></div>
+    </div>
+
+    <h2>Значения c(i)</h2>
+    <div id="values-wrap"><div id="values"></div></div>
+  </aside>
+</main>
+
+<script>
+"use strict";
+
+// =========================================================
+// Состояние
+// =========================================================
+const N = 50;
+
+const state = {
+  positions: [],            // [[x,y], ...] в МИРОВЫХ координатах (px)
+  edges: new Set(),         // строки "a-b" где a < b
+  centrality: new Array(N).fill(0),
+  selected: null,
+  hoverNode: null,
+  dragging: null,           // {idx, dx, dy, moved}
+  panning: null,            // {sx, sy, ox, oy}
+  spaceDown: false,
+  view: { scale: 1, x: 0, y: 0 },
+};
+
+// =========================================================
+// Утилиты для рёбер
+// =========================================================
+const edgeKey = (a, b) => a < b ? `${a}-${b}` : `${b}-${a}`;
+const parseEdge = k => k.split('-').map(Number);
+
+function setEdge(a, b, on) {
+  if (a === b) return;
+  const k = edgeKey(a, b);
+  if (on) state.edges.add(k);
+  else state.edges.delete(k);
+}
+function toggleEdge(a, b) {
+  if (a === b) return;
+  const k = edgeKey(a, b);
+  if (state.edges.has(k)) state.edges.delete(k);
+  else state.edges.add(k);
+}
+function removeNodeEdges(idx) {
+  for (const k of [...state.edges]) {
+    const [a, b] = parseEdge(k);
+    if (a === idx || b === idx) state.edges.delete(k);
+  }
+}
+
+// =========================================================
+// Размер канваса
+// =========================================================
+const canvas = document.getElementById('graph');
+const ctx = canvas.getContext('2d');
+let canvasCSS = { w: 0, h: 0 };
+
+function resizeCanvas() {
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+  canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+  canvasCSS.w = rect.width; canvasCSS.h = rect.height;
+}
+
+// =========================================================
+// Раскладки (мировые координаты)
+// =========================================================
+function layoutCircle() {
+  const W = canvasCSS.w, H = canvasCSS.h;
+  const cx = W / 2, cy = H / 2;
+  const r = Math.min(W, H) * 0.40;
+  const pos = [];
+  for (let i = 0; i < N; i++) {
+    const a = -Math.PI / 2 + (2 * Math.PI * i) / N;
+    pos.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+  }
+  return pos;
+}
+function layoutGrid() {
+  const W = canvasCSS.w, H = canvasCSS.h;
+  const cols = 10, rows = 5;
+  const padX = W * 0.07, padY = H * 0.12;
+  const dx = (W - 2 * padX) / (cols - 1);
+  const dy = (H - 2 * padY) / (rows - 1);
+  const pos = [];
+  for (let i = 0; i < N; i++) {
+    const r = Math.floor(i / cols), c = i % cols;
+    pos.push([padX + c * dx, padY + r * dy]);
+  }
+  return pos;
+}
+function layoutLine() {
+  const W = canvasCSS.w, H = canvasCSS.h;
+  const padX = W * 0.05;
+  const dx = (W - 2 * padX) / (N - 1);
+  const y = H / 2;
+  const pos = [];
+  for (let i = 0; i < N; i++) pos.push([padX + i * dx, y]);
+  return pos;
+}
+function layoutRandom() {
+  const W = canvasCSS.w, H = canvasCSS.h;
+  const pad = 30;
+  const pos = [];
+  for (let i = 0; i < N; i++) {
+    pos.push([pad + Math.random() * (W - 2 * pad), pad + Math.random() * (H - 2 * pad)]);
+  }
+  return pos;
+}
+function applyLayout(name) {
+  const fn = { circle: layoutCircle, grid: layoutGrid, line: layoutLine, random: layoutRandom }[name] || layoutCircle;
+  state.positions = fn();
+  resetView();
+  scheduleDraw();
+}
+
+function resetView() {
+  state.view = { scale: 1, x: 0, y: 0 };
+  updateZoomInfo();
+}
+function fitView() {
+  if (state.positions.length === 0) return;
+  let xs = state.positions.map(p => p[0]);
+  let ys = state.positions.map(p => p[1]);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  const pad = 40;
+  const bbW = maxX - minX + 2 * pad, bbH = maxY - minY + 2 * pad;
+  const sx = canvasCSS.w / bbW, sy = canvasCSS.h / bbH;
+  const s = Math.min(sx, sy, 3);
+  state.view.scale = s;
+  state.view.x = canvasCSS.w / 2 - s * (minX + maxX) / 2;
+  state.view.y = canvasCSS.h / 2 - s * (minY + maxY) / 2;
+  updateZoomInfo();
+  scheduleDraw();
+}
+function zoomAt(sx, sy, factor) {
+  const s0 = state.view.scale;
+  const s1 = Math.max(0.15, Math.min(8, s0 * factor));
+  const k = s1 / s0;
+  state.view.x = sx - k * (sx - state.view.x);
+  state.view.y = sy - k * (sy - state.view.y);
+  state.view.scale = s1;
+  updateZoomInfo();
+  scheduleDraw();
+}
+function updateZoomInfo() {
+  document.getElementById('zoom-info').textContent = Math.round(state.view.scale * 100) + '%';
+}
+function screenToWorld(sx, sy) {
+  return [(sx - state.view.x) / state.view.scale, (sy - state.view.y) / state.view.scale];
+}
+
+// =========================================================
+// Пресеты рёбер
+// =========================================================
+const presets = {
+  chain() {
+    state.edges.clear();
+    for (let i = 0; i < N - 1; i++) state.edges.add(edgeKey(i, i + 1));
+  },
+  cycle() {
+    state.edges.clear();
+    for (let i = 0; i < N; i++) state.edges.add(edgeKey(i, (i + 1) % N));
+  },
+  star() {
+    state.edges.clear();
+    const c = 25;
+    for (let i = 0; i < N; i++) if (i !== c) state.edges.add(edgeKey(c, i));
+  },
+  dumbbell() {
+    state.edges.clear();
+    // клика [0..9]
+    for (let i = 0; i < 10; i++) for (let j = i + 1; j < 10; j++) state.edges.add(edgeKey(i, j));
+    // клика [40..49]
+    for (let i = 40; i < 50; i++) for (let j = i + 1; j < 50; j++) state.edges.add(edgeKey(i, j));
+    // цепь 9—10—11—…—40
+    for (let i = 9; i < 40; i++) state.edges.add(edgeKey(i, i + 1));
+  },
+  'two-cliques'() {
+    state.edges.clear();
+    for (let i = 0; i < 25; i++) for (let j = i + 1; j < 25; j++) state.edges.add(edgeKey(i, j));
+    for (let i = 25; i < 50; i++) for (let j = i + 1; j < 50; j++) state.edges.add(edgeKey(i, j));
+    state.edges.add(edgeKey(24, 25));
+  },
+  bump() {
+    // цепочка + плотная зона около центра → одиночный «горбик» в центре
+    state.edges.clear();
+    for (let i = 0; i < N - 1; i++) state.edges.add(edgeKey(i, i + 1));
+    // дополнительные рёбра между [22..28]
+    for (let i = 22; i <= 28; i++) for (let j = i + 1; j <= 28; j++) state.edges.add(edgeKey(i, j));
+  },
+  'pit-bump'() {
+    // Стартовая структура под задание препода: спуск → яма → подъём → горб → спуск.
+    // Идея: левая мини-клика [0..6] (стартовое высокое c), редкая длинная цепочка
+    // через «яму» [7..18], затем средне-плотная зона [19..30] с пиком, затем спуск
+    // через цепь [31..49].
+    state.edges.clear();
+    // плотная клика [0..6]
+    for (let i = 0; i <= 6; i++) for (let j = i + 1; j <= 6; j++) state.edges.add(edgeKey(i, j));
+    // редкая цепочка [6..19] — «яма»
+    for (let i = 6; i < 19; i++) state.edges.add(edgeKey(i, i + 1));
+    // плотный кластер [19..30] — «горбик»
+    for (let i = 19; i <= 30; i++) for (let j = i + 1; j <= 30; j++) state.edges.add(edgeKey(i, j));
+    // длинный спуск-цепочка [30..49]
+    for (let i = 30; i < 49; i++) state.edges.add(edgeKey(i, i + 1));
+  },
+  bipartite() {
+    state.edges.clear();
+    for (let i = 0; i < N; i++) for (let j = i + 1; j < N; j++) {
+      if ((i % 2) !== (j % 2)) state.edges.add(edgeKey(i, j));
+    }
+  },
+  // Стартовая структура для задания препода: c(i) формы кубического полинома.
+  // Получается «полка ~0.20 на [0..11] → яма ~0 в [13..18] → пик ~0.22 на [25..26] → спуск к 0 в хвосте».
+  // Конструкция: backbone + K_12 на [0..11] + K_12 на [20..31] + 2 перемычки между серединами клик.
+  // Перемычки (4,24) и (5,25) принципиально важны — они снимают вырождение двух близких собств.
+  // значений (от двух одинаковых клик), без них NX даёт нестабильный результат.
+  cubic() {
+    state.edges.clear();
+    for (let i = 0; i < N - 1; i++) state.edges.add(edgeKey(i, i + 1));   // chain backbone
+    for (let i = 0; i <= 11; i++) for (let j = i + 1; j <= 11; j++) state.edges.add(edgeKey(i, j));   // K_12 left
+    for (let i = 20; i <= 31; i++) for (let j = i + 1; j <= 31; j++) state.edges.add(edgeKey(i, j));  // K_12 right
+    state.edges.add(edgeKey(4, 24));   // перемычка 1
+    state.edges.add(edgeKey(5, 25));   // перемычка 2
+  },
+};
+
+// =========================================================
+// Центральность по собств. вектору (сдвинутый степенной метод)
+//
+// Использует итерацию M = A + c*I, c = max_degree.
+// Сдвиг нужен из-за двудольных графов (циклы чётной длины, пути и т.п.):
+// у них λ_min = -λ_max и обычная итерация осциллирует, не сходясь.
+// Сдвиг гарантирует, что все собств. значения M неотрицательны, а ведущий
+// собств. вектор A совпадает с ведущим у M. Совпадает с
+// nx.eigenvector_centrality_numpy с точностью до 1e-12 на связных графах.
+// =========================================================
+function computeCentrality() {
+  const adj = Array.from({length: N}, () => []);
+  for (const k of state.edges) {
+    const [a, b] = parseEdge(k);
+    adj[a].push(b); adj[b].push(a);
+  }
+  if (state.edges.size === 0) return new Array(N).fill(0);
+
+  let dmax = 0;
+  for (let i = 0; i < N; i++) if (adj[i].length > dmax) dmax = adj[i].length;
+  const shift = dmax;
+
+  let x = new Array(N).fill(1 / Math.sqrt(N));
+  // 3000 итераций нужны для сходимости на длинных путях
+  // (там λ_2/λ_1 близко к 1 → итерация сходится медленно).
+  const maxIter = 3000, tol = 1e-12;
+  for (let it = 0; it < maxIter; it++) {
+    const y = new Array(N).fill(0);
+    for (let i = 0; i < N; i++) {
+      y[i] = shift * x[i];
+      for (const j of adj[i]) y[i] += x[j];
+    }
+    let norm = 0;
+    for (let i = 0; i < N; i++) norm += y[i] * y[i];
+    norm = Math.sqrt(norm);
+    if (norm < 1e-15) return new Array(N).fill(0);
+    for (let i = 0; i < N; i++) y[i] /= norm;
+
+    let signIdx = 0, maxAbs = 0;
+    for (let i = 0; i < N; i++) if (Math.abs(y[i]) > maxAbs) { maxAbs = Math.abs(y[i]); signIdx = i; }
+    if (y[signIdx] < 0) for (let i = 0; i < N; i++) y[i] = -y[i];
+
+    let diff = 0;
+    for (let i = 0; i < N; i++) diff += Math.abs(y[i] - x[i]);
+    x = y;
+    if (diff < tol) break;
+  }
+  return x;
+}
+
+function countComponents() {
+  const adj = Array.from({length: N}, () => []);
+  for (const k of state.edges) {
+    const [a, b] = parseEdge(k);
+    adj[a].push(b); adj[b].push(a);
+  }
+  const seen = new Array(N).fill(false);
+  let comps = 0;
+  for (let s = 0; s < N; s++) {
+    if (seen[s]) continue;
+    comps++;
+    const queue = [s]; seen[s] = true;
+    while (queue.length) {
+      const u = queue.pop();
+      for (const v of adj[u]) if (!seen[v]) { seen[v] = true; queue.push(v); }
+    }
+  }
+  return comps;
+}
+
+function recompute() {
+  state.centrality = computeCentrality();
+  scheduleDraw();
+  drawChart();
+  updateSidebar();
+}
+
+// =========================================================
+// Рисование графа
+// =========================================================
+let drawScheduled = false;
+function scheduleDraw() {
+  if (drawScheduled) return;
+  drawScheduled = true;
+  requestAnimationFrame(() => { drawScheduled = false; draw(); });
+}
+
+function nodeRadiusWorld(i) {
+  const c = state.centrality[i] || 0;
+  const cmax = Math.max(...state.centrality, 1e-9);
+  return 9 + 8 * (c / cmax);
+}
+function nodeColor(i) {
+  const c = state.centrality[i] || 0;
+  const cmax = Math.max(...state.centrality, 1e-9);
+  const t = c / cmax;
+  // viridis-подобная: фиолет → бирюзов → жёлтый
+  const stops = [
+    [68, 1, 84],
+    [59, 82, 139],
+    [33, 144, 141],
+    [94, 201, 98],
+    [253, 231, 37],
+  ];
+  const f = t * (stops.length - 1);
+  const i0 = Math.floor(f), i1 = Math.min(stops.length - 1, i0 + 1);
+  const a = f - i0;
+  const r = Math.round(stops[i0][0] * (1 - a) + stops[i1][0] * a);
+  const g = Math.round(stops[i0][1] * (1 - a) + stops[i1][1] * a);
+  const b = Math.round(stops[i0][2] * (1 - a) + stops[i1][2] * a);
+  return `rgb(${r},${g},${b})`;
+}
+
+function drawGrid(W, H) {
+  const s = state.view.scale;
+  const step = 50;
+  const sx0 = (-state.view.x) / s;
+  const sy0 = (-state.view.y) / s;
+  const sx1 = sx0 + W / s;
+  const sy1 = sy0 + H / s;
+  const x0 = Math.floor(sx0 / step) * step;
+  const y0 = Math.floor(sy0 / step) * step;
+
+  ctx.strokeStyle = '#1a212f';
+  ctx.lineWidth = 1 / s;
+  ctx.beginPath();
+  for (let x = x0; x <= sx1; x += step) {
+    ctx.moveTo(x, sy0); ctx.lineTo(x, sy1);
+  }
+  for (let y = y0; y <= sy1; y += step) {
+    ctx.moveTo(sx0, y); ctx.lineTo(sx1, y);
+  }
+  ctx.stroke();
+}
+
+function draw() {
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvasCSS.w, H = canvasCSS.h;
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+
+  // Применяем view transform (и DPR)
+  ctx.setTransform(dpr * state.view.scale, 0, 0, dpr * state.view.scale,
+                   dpr * state.view.x, dpr * state.view.y);
+
+  // фоновая сетка
+  drawGrid(W, H);
+
+  // Рёбра
+  ctx.strokeStyle = 'rgba(160, 180, 200, 0.4)';
+  ctx.lineWidth = 1.5 / state.view.scale;
+  ctx.beginPath();
+  for (const k of state.edges) {
+    const [a, b] = parseEdge(k);
+    const [ax, ay] = state.positions[a];
+    const [bx, by] = state.positions[b];
+    ctx.moveTo(ax, ay); ctx.lineTo(bx, by);
+  }
+  ctx.stroke();
+
+  // Узлы
+  for (let i = 0; i < N; i++) {
+    const [x, y] = state.positions[i];
+    const r = nodeRadiusWorld(i);
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, 2 * Math.PI);
+    ctx.fillStyle = (i === state.selected) ? '#ffd33d' : nodeColor(i);
+    ctx.fill();
+    if (i === state.hoverNode || i === state.selected) {
+      ctx.lineWidth = 2 / state.view.scale; ctx.strokeStyle = '#ffffff';
+    } else {
+      ctx.lineWidth = 1 / state.view.scale; ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    }
+    ctx.stroke();
+    // Подпись индекса
+    ctx.fillStyle = '#0d1117';
+    ctx.font = `bold ${10}px ui-monospace, monospace`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(i), x, y);
+  }
+}
+
+// =========================================================
+// Канвас графика c(i)
+// =========================================================
+const chart = document.getElementById('chart');
+const cctx = chart.getContext('2d');
+let chartCSS = { w: 0, h: 0 };
+function resizeChart() {
+  const rect = chart.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  chart.width = Math.max(1, Math.floor(rect.width * dpr));
+  chart.height = Math.max(1, Math.floor(rect.height * dpr));
+  chartCSS.w = rect.width; chartCSS.h = rect.height;
+  cctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function drawChart() {
+  const W = chartCSS.w, H = chartCSS.h;
+  if (W === 0 || H === 0) return;
+  cctx.clearRect(0, 0, W, H);
+
+  const padL = 42, padR = 12, padT = 12, padB = 24;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+
+  const c = state.centrality;
+  const cmax = Math.max(...c, 1e-9);
+  const cmin = 0;
+
+  // сетка
+  cctx.strokeStyle = '#202836'; cctx.lineWidth = 1;
+  cctx.beginPath();
+  for (let g = 0; g <= 4; g++) {
+    const y = padT + (plotH * g) / 4;
+    cctx.moveTo(padL, y); cctx.lineTo(W - padR, y);
+  }
+  cctx.stroke();
+
+  // подписи Y
+  cctx.fillStyle = '#6e7a8f';
+  cctx.font = '10px ui-monospace, monospace';
+  cctx.textAlign = 'right'; cctx.textBaseline = 'middle';
+  for (let g = 0; g <= 4; g++) {
+    const v = cmax - (cmax - cmin) * (g / 4);
+    const y = padT + (plotH * g) / 4;
+    cctx.fillText(v.toFixed(3), padL - 4, y);
+  }
+
+  // подписи X
+  cctx.textAlign = 'center'; cctx.textBaseline = 'top';
+  for (let i = 0; i < N; i += 5) {
+    const x = padL + (plotW * i) / (N - 1);
+    cctx.fillText(String(i), x, H - padB + 4);
+  }
+
+  // линия
+  const xy = (i) => [
+    padL + (plotW * i) / (N - 1),
+    padT + plotH * (1 - (c[i] - cmin) / (cmax - cmin || 1)),
+  ];
+
+  // заливка под кривой (легкий градиент)
+  const grad = cctx.createLinearGradient(0, padT, 0, padT + plotH);
+  grad.addColorStop(0, 'rgba(88, 166, 255, 0.35)');
+  grad.addColorStop(1, 'rgba(88, 166, 255, 0.02)');
+  cctx.fillStyle = grad;
+  cctx.beginPath();
+  cctx.moveTo(padL, padT + plotH);
+  for (let i = 0; i < N; i++) { const [x, y] = xy(i); cctx.lineTo(x, y); }
+  cctx.lineTo(W - padR, padT + plotH); cctx.closePath();
+  cctx.fill();
+
+  // линия c(i)
+  cctx.strokeStyle = '#58a6ff'; cctx.lineWidth = 2;
+  cctx.beginPath();
+  for (let i = 0; i < N; i++) { const [x, y] = xy(i); if (i === 0) cctx.moveTo(x, y); else cctx.lineTo(x, y); }
+  cctx.stroke();
+
+  // точки
+  for (let i = 0; i < N; i++) {
+    const [x, y] = xy(i);
+    const isHi = (i === state.selected || i === state.hoverNode);
+    cctx.fillStyle = isHi ? '#ffd33d' : '#58a6ff';
+    cctx.beginPath();
+    cctx.arc(x, y, isHi ? 4 : 2.5, 0, 2 * Math.PI);
+    cctx.fill();
+  }
+}
+
+// =========================================================
+// Боковая панель
+// =========================================================
+function updateSidebar() {
+  document.getElementById('stat-edges').textContent = state.edges.size;
+  document.getElementById('stat-sel').textContent = state.selected === null ? '—' : `#${state.selected}`;
+  const cc = countComponents();
+  document.getElementById('stat-cc').textContent = cc;
+  // Включаем красную плашку когда граф разорван
+  const warn = document.getElementById('warning');
+  const ccStat = document.querySelector('.stat:has(#stat-cc)');
+  if (cc > 1) {
+    warn.classList.add('show');
+    document.getElementById('warn-cc').textContent = cc;
+    if (ccStat) ccStat.classList.add('warn');
+  } else {
+    warn.classList.remove('show');
+    if (ccStat) ccStat.classList.remove('warn');
+  }
+  const avgDeg = state.edges.size * 2 / N;
+  document.getElementById('stat-deg').textContent = avgDeg.toFixed(2);
+  const c = state.centrality;
+  const hasAny = c.some(v => v > 0);
+  document.getElementById('stat-min').textContent = hasAny ? Math.min(...c).toFixed(4) : '—';
+  document.getElementById('stat-max').textContent = hasAny ? Math.max(...c).toFixed(4) : '—';
+
+  const valDiv = document.getElementById('values');
+  valDiv.innerHTML = c.map((v, i) =>
+    `<div class="vrow ${i === state.selected ? 'sel' : ''}" data-i="${i}">` +
+    `<span class="idx">c(${String(i).padStart(2, ' ')})</span>` +
+    `<span class="val">${v.toFixed(6)}</span></div>`
+  ).join('');
+}
+
+// =========================================================
+// Hit-test
+// =========================================================
+function nodeAt(wx, wy) {
+  // ищем с учётом радиуса (без учёта зума, потому что радиус и так в мире)
+  for (let i = N - 1; i >= 0; i--) {
+    const [px, py] = state.positions[i];
+    const r = nodeRadiusWorld(i) + 3;
+    const dx = px - wx, dy = py - wy;
+    if (dx * dx + dy * dy <= r * r) return i;
+  }
+  return null;
+}
+
+// =========================================================
+// Мышь
+// =========================================================
+function getMouse(e) {
+  const rect = canvas.getBoundingClientRect();
+  return [e.clientX - rect.left, e.clientY - rect.top];
+}
+
+canvas.addEventListener('mousedown', e => {
+  const [sx, sy] = getMouse(e);
+
+  // средняя кнопка или Space → панорама
+  if (e.button === 1 || (e.button === 0 && state.spaceDown)) {
+    e.preventDefault();
+    state.panning = { sx, sy, ox: state.view.x, oy: state.view.y };
+    canvas.style.cursor = 'grabbing';
+    return;
+  }
+  if (e.button !== 0) return;
+
+  const [wx, wy] = screenToWorld(sx, sy);
+  const idx = nodeAt(wx, wy);
+  if (idx !== null) {
+    state.dragging = {
+      idx,
+      dx: state.positions[idx][0] - wx,
+      dy: state.positions[idx][1] - wy,
+      moved: false,
+    };
+    canvas.style.cursor = 'grabbing';
+  } else {
+    // клик в пустоту → начало возможной панорамы
+    state.panning = { sx, sy, ox: state.view.x, oy: state.view.y, fromEmpty: true };
+    canvas.style.cursor = 'grabbing';
+  }
+});
+
+canvas.addEventListener('mousemove', e => {
+  const [sx, sy] = getMouse(e);
+
+  if (state.panning) {
+    state.view.x = state.panning.ox + (sx - state.panning.sx);
+    state.view.y = state.panning.oy + (sy - state.panning.sy);
+    state.panning.moved = Math.hypot(sx - state.panning.sx, sy - state.panning.sy) > 3;
+    scheduleDraw();
+    return;
+  }
+
+  if (state.dragging) {
+    const [wx, wy] = screenToWorld(sx, sy);
+    const d = state.dragging;
+    const newX = wx + d.dx, newY = wy + d.dy;
+    const px = state.positions[d.idx][0], py = state.positions[d.idx][1];
+    if (Math.hypot(newX - px, newY - py) > 1) d.moved = true;
+    state.positions[d.idx] = [newX, newY];
+    scheduleDraw();
+    return;
+  }
+
+  const [wx, wy] = screenToWorld(sx, sy);
+  const h = nodeAt(wx, wy);
+  canvas.style.cursor = h !== null ? 'pointer' : (state.spaceDown ? 'grab' : 'default');
+  if (h !== state.hoverNode) {
+    state.hoverNode = h;
+    scheduleDraw(); drawChart();
+  }
+});
+
+canvas.addEventListener('mouseup', e => {
+  if (state.panning) {
+    const moved = state.panning.moved;
+    const fromEmpty = state.panning.fromEmpty;
+    state.panning = null;
+    canvas.style.cursor = state.spaceDown ? 'grab' : 'default';
+    // если кликнули в пустоту без движения — снять выделение
+    if (fromEmpty && !moved) {
+      state.selected = null;
+      scheduleDraw(); updateSidebar();
+    }
+    return;
+  }
+
+  if (!state.dragging) return;
+  const d = state.dragging;
+  state.dragging = null;
+  canvas.style.cursor = 'pointer';
+  if (d.moved) return;
+
+  // Это был клик по узлу
+  if (state.selected === null) {
+    state.selected = d.idx;
+  } else if (state.selected === d.idx) {
+    state.selected = null;
+  } else {
+    toggleEdge(state.selected, d.idx);
+    state.selected = null;
+    recompute();
+  }
+  scheduleDraw(); updateSidebar();
+});
+
+canvas.addEventListener('mouseleave', () => {
+  state.hoverNode = null;
+  scheduleDraw();
+});
+
+canvas.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  const [sx, sy] = getMouse(e);
+  const [wx, wy] = screenToWorld(sx, sy);
+  const idx = nodeAt(wx, wy);
+  if (idx !== null) {
+    removeNodeEdges(idx);
+    recompute();
+  }
+});
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const [sx, sy] = getMouse(e);
+  const factor = Math.exp(-e.deltaY * 0.0015);
+  zoomAt(sx, sy, factor);
+}, { passive: false });
+
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' && !state.spaceDown) {
+    state.spaceDown = true;
+    canvas.style.cursor = 'grab';
+    if (e.target === document.body) e.preventDefault();
+  } else if (e.key === 'Escape') {
+    state.selected = null;
+    scheduleDraw(); updateSidebar();
+  } else if ((e.key === '+' || e.key === '=') && !e.metaKey && !e.ctrlKey) {
+    zoomAt(canvasCSS.w / 2, canvasCSS.h / 2, 1.2);
+  } else if (e.key === '-' && !e.metaKey && !e.ctrlKey) {
+    zoomAt(canvasCSS.w / 2, canvasCSS.h / 2, 1 / 1.2);
+  }
+});
+document.addEventListener('keyup', e => {
+  if (e.code === 'Space') {
+    state.spaceDown = false;
+    if (!state.panning) canvas.style.cursor = 'default';
+  }
+});
+
+document.getElementById('values').addEventListener('click', e => {
+  const row = e.target.closest('.vrow');
+  if (!row) return;
+  state.selected = +row.dataset.i;
+  scheduleDraw(); drawChart(); updateSidebar();
+});
+
+// =========================================================
+// Кнопки
+// =========================================================
+document.getElementById('btn-clear-edges').onclick = () => {
+  state.edges.clear();
+  state.selected = null;
+  recompute(); updateSidebar();
+};
+document.getElementById('btn-relayout').onclick = () => {
+  applyLayout(document.getElementById('layout-select').value);
+};
+document.getElementById('btn-reset').onclick = () => {
+  if (!confirm('Сбросить граф полностью?')) return;
+  state.edges.clear();
+  state.selected = null;
+  document.getElementById('layout-select').value = 'circle';
+  applyLayout('circle');
+  recompute(); updateSidebar();
+};
+
+document.getElementById('btn-zoom-in').onclick = () => zoomAt(canvasCSS.w / 2, canvasCSS.h / 2, 1.25);
+document.getElementById('btn-zoom-out').onclick = () => zoomAt(canvasCSS.w / 2, canvasCSS.h / 2, 1 / 1.25);
+document.getElementById('btn-zoom-reset').onclick = () => { resetView(); scheduleDraw(); };
+document.getElementById('btn-zoom-fit').onclick = () => fitView();
+
+// Пресеты
+document.querySelectorAll('[data-preset]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const name = btn.dataset.preset;
+    if (presets[name]) {
+      presets[name]();
+      state.selected = null;
+      recompute(); updateSidebar();
+    }
+  });
+});
+
+// Сохранение / загрузка
+document.getElementById('btn-save').onclick = () => {
+  const data = {
+    n: N,
+    edges: [...state.edges].map(parseEdge),
+    positions: state.positions.map(p => [p[0], p[1]]),
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'lab2_graph.json';
+  a.click();
+  URL.revokeObjectURL(url);
+};
+document.getElementById('file-input').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if (data.n !== N) {
+      alert(`В файле n=${data.n}, а здесь N=${N}. Нужен файл ровно на ${N} узлов.`);
+      return;
+    }
+    state.edges = new Set(data.edges.map(([a, b]) => edgeKey(a, b)));
+    if (data.positions && data.positions.length === N) {
+      state.positions = data.positions.map(p => [p[0], p[1]]);
+    } else {
+      state.positions = layoutCircle();
+    }
+    state.selected = null;
+    fitView();
+    recompute(); updateSidebar();
+  } catch (err) {
+    alert('Не удалось загрузить файл: ' + err.message);
+  }
+  e.target.value = '';
+});
+
+// =========================================================
+// Инициализация
+// =========================================================
+window.addEventListener('resize', () => {
+  resizeCanvas(); resizeChart();
+  scheduleDraw(); drawChart();
+});
+
+// Инициализируем после layout (важно — иначе rect.width = 0)
+requestAnimationFrame(() => {
+  resizeCanvas();
+  resizeChart();
+  applyLayout('circle');
+  recompute();
+  updateSidebar();
+});
+</script>
+</body>
+</html>
